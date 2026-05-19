@@ -63,6 +63,43 @@ namespace Estate2D.AntiCheat.Core
         private int rotationSuspicionThreshold = 3;
         public int RotationSuspicionThreshold => rotationSuspicionThreshold;
 
+        [Header("Teleport Detection")]
+        [SerializeField]
+        [Tooltip("Максимальное допустимое расстояние прыжка за один кадр (м)")]
+        [Min(0.1f)]
+        private float maxAllowedTeleportDistance = 50f;
+        public float MaxAllowedTeleportDistance => maxAllowedTeleportDistance;
+
+        [SerializeField]
+        [Tooltip("Количество подозрений для срабатывания")]
+        [Min(1)]
+        private int teleportSuspicionThreshold = 2;
+        public int TeleportSuspicionThreshold => teleportSuspicionThreshold;
+
+        [Header("Time Sync Detection")]
+        [SerializeField]
+        [Tooltip("URL сервера времени для сверки устройства")]
+        private string timeServerUrl = "https://timeapi.io/api/Time/current/zone?timeZone=Etc/UTC";
+        public string TimeServerUrl => timeServerUrl;
+
+        [SerializeField]
+        [Tooltip("Максимальное допустимое расхождение времени в секундах")]
+        [Min(0f)]
+        private float timeSyncToleranceSeconds = 5f;
+        public float TimeSyncToleranceSeconds => timeSyncToleranceSeconds;
+
+        [SerializeField]
+        [Tooltip("Интервал проверки времени (сек)")]
+        [Min(1f)]
+        private float timeSyncCheckInterval = 60f;
+        public float TimeSyncCheckInterval => timeSyncCheckInterval;
+
+        [SerializeField]
+        [Tooltip("Количество последовательных ошибок синхронизации для срабатывания")]
+        [Min(1)]
+        private int timeSyncSuspicionThreshold = 2;
+        public int TimeSyncSuspicionThreshold => timeSyncSuspicionThreshold;
+
         [Header("Response Settings")]
         [SerializeField]
         private ResponseType defaultResponseType = ResponseType.Warning;
@@ -112,6 +149,13 @@ namespace Estate2D.AntiCheat.Core
                     break;
                 case CheatType.RotationHack:
                     response.UserMessage = "Обнаружено аномальное вращение. Это может привести к блокировке.";
+                    break;
+                case CheatType.TimeManipulation:
+                    response.UserMessage = "Время устройства не совпадает с серверным временем. Это может указывать на попытку обмана.";
+                    break;
+                case CheatType.PositionTeleport:
+                    response.UserMessage = "Обнаружена попытка телепортации. Аккаунт может быть заблокирован.";
+                    response.BanPlayer = true;
                     break;
                 case CheatType.MemoryModification:
                     response.UserMessage = "Обнаружено изменение памяти. Ваш аккаунт может быть заблокирован.";

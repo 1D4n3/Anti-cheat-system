@@ -173,6 +173,52 @@ namespace Estate2D.AntiCheat.Core
         }
 
         /// <summary>
+        /// Последнее синхронизированное время устройства.
+        /// </summary>
+        public DateTime? LastDeviceTimeUtc { get; private set; }
+
+        /// <summary>
+        /// Последнее синхронизированное серверное время.
+        /// </summary>
+        public DateTime? LastServerTimeUtc { get; private set; }
+
+        /// <summary>
+        /// Время последней попытки синхронизации, успешной или неуспешной.
+        /// </summary>
+        public DateTime? LastTimeSyncAttemptUtc { get; private set; }
+
+        /// <summary>
+        /// Текст ошибки последней попытки проверки времени.
+        /// </summary>
+        public string LastTimeSyncError { get; private set; }
+
+        /// <summary>
+        /// Последняя разница между устройством и сервером в секундах.
+        /// </summary>
+        public float LastTimeSyncDifferenceSeconds { get; private set; }
+
+        /// <summary>
+        /// Обновить статус синхронизации времени.
+        /// </summary>
+        public void UpdateTimeSyncStatus(DateTime deviceUtc, DateTime serverUtc, float differenceSeconds)
+        {
+            LastDeviceTimeUtc = deviceUtc;
+            LastServerTimeUtc = serverUtc;
+            LastTimeSyncDifferenceSeconds = differenceSeconds;
+            LastTimeSyncAttemptUtc = DateTime.UtcNow;
+            LastTimeSyncError = null;
+        }
+
+        /// <summary>
+        /// Обновить информацию о неудачной попытке синхронизации.
+        /// </summary>
+        public void UpdateTimeSyncAttemptStatus(string errorMessage)
+        {
+            LastTimeSyncAttemptUtc = DateTime.UtcNow;
+            LastTimeSyncError = errorMessage;
+        }
+
+        /// <summary>
         /// Обработать обнаруженное нарушение.
         /// Вызывается модулями при обнаружении читерства.
         /// </summary>

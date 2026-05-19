@@ -72,6 +72,7 @@ namespace Estate2D.AntiCheat.Core
         PositionTeleport,
         InfiniteResources,
         ClientSideModification,
+        TimeManipulation,
         Unknown
     }
 }

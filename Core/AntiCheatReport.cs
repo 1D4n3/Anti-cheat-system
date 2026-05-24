@@ -70,6 +70,7 @@ namespace Estate2D.AntiCheat.Core
         RotationHack,
         MemoryModification,
         PositionTeleport,
+        WallHack,
         InfiniteResources,
         ClientSideModification,
         TimeManipulation,

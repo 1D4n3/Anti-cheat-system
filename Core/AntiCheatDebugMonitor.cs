@@ -157,6 +157,18 @@ namespace Estate2D.AntiCheat.Utils
                         {
                             DrawTimeSyncSection(manager);
                         }
+                        else if (typeName.Contains("wallhack") || typeName.Contains("wall") || typeName.Contains("aim"))
+                        {
+                            var stats = manager.GetDetectionStatistics();
+                            stats.TryGetValue(CheatType.WallHack, out var wallHackCount);
+
+                            DrawRow("  Module Status:", module.IsEnabled ? "<color=#00FF00>Enabled</color>" : "<color=#FF0000>Disabled</color>");
+                            DrawRow("  WallHack Detections:", wallHackCount.ToString());
+                            DrawRow("  Check Interval:", $"{config.WallHackCheckInterval:F2}s");
+                            DrawRow("  Max Distance:", $"{config.MaxWallHackCheckDistance:F1}m");
+                            DrawRow("  Aim Angle:", $"{config.WallHackAimAngleDegrees:F1}°");
+                            DrawRow("  Suspicion Threshold:", config.WallHackSuspicionThreshold.ToString());
+                        }
                         else
                         {
                             // Дефолтный вывод для остальных модулей, если у них нет уникальных настроек в конфиге

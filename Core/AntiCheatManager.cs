@@ -22,6 +22,13 @@ namespace Estate2D.AntiCheat.Core
         private List<IAntiCheatModule> _modules = new List<IAntiCheatModule>();
         private List<AntiCheatReport> _detectionHistory = new List<AntiCheatReport>();
 
+        // Диалог
+        private bool _showDetectionDialog = false;
+        private string _detectionDialogMessage = "";
+        private GUIStyle _dialogWindowStyle;
+        private GUIStyle _dialogLabelStyle;
+        private GUIStyle _dialogButtonStyle;
+
         /// <summary>
         /// Событие, вызываемое при обнаружении любого нарушения.
         /// </summary>
@@ -48,8 +55,12 @@ namespace Estate2D.AntiCheat.Core
             {
                 if (_instance == null)
                 {
-                    var obj = new GameObject("[AntiCheat Manager]");
-                    _instance = obj.AddComponent<AntiCheatManager>();
+                    _instance = FindAnyObjectByType<AntiCheatManager>();
+                    if (_instance == null)
+                    {
+                        var obj = new GameObject("[AntiCheat Manager]");
+                        _instance = obj.AddComponent<AntiCheatManager>();
+                    }
                 }
                 return _instance;
             }
@@ -83,6 +94,14 @@ namespace Estate2D.AntiCheat.Core
             }
         }
 
+        private void OnGUI()
+        {
+            if (_showDetectionDialog && config.ShowDetectionDialog)
+            {
+                DrawDetectionDialog();
+            }
+        }
+
         /// <summary>
         /// Инициализирует систему античита.
         /// </summary>
@@ -104,12 +123,7 @@ namespace Estate2D.AntiCheat.Core
 
             Log($"Система античита инициализирована. Режим отладки: {config.DebugMode}");
 
-            // Ищем все модули в сцене
-            var modules = GetComponentsInChildren<IAntiCheatModule>();
-            foreach (var module in modules)
-            {
-                RegisterModule(module);
-            }
+            // Модули регистрируются автоматически сами (autoRegister) или вручную.
         }
 
         /// <summary>
@@ -257,47 +271,118 @@ namespace Estate2D.AntiCheat.Core
         {
             var response = config.GetResponseForCheatType(report.CheatType);
 
-            if (response.ShowWarning && !string.IsNullOrEmpty(response.UserMessage))
+            if (response.LogToConsole)
             {
-                // TODO: Показать UI предупреждение
-                Debug.LogWarning($"[AntiCheat WARNING] {response.UserMessage}");
+                Debug.Log($"[AntiCheat DETECTION] {response.UserMessage}");
             }
 
-            if (response.DisableComponent && report.TargetObject != null)
-            {
-                var monoBehaviours = report.TargetObject.GetComponents<MonoBehaviour>();
-                foreach (var mono in monoBehaviours)
-                {
-                    if (mono is not AntiCheatManager)
-                    {
-                        mono.enabled = false;
-                    }
-                }
-            }
-
-            if (response.PauseGame)
+            if (config.PauseGameOnDetection)
             {
                 Time.timeScale = 0f;
             }
 
-            if (response.SendToServer && !string.IsNullOrEmpty(config.ServerReportUrl))
+            if (config.ShowDetectionDialog)
             {
-                SendReportToServer(report);
+                _detectionDialogMessage = response.UserMessage;
+                _showDetectionDialog = true;
             }
-
-            if (config.QuitGameOnDetection || response.BanPlayer)
+            else if (config.QuitGameOnDetection)
             {
                 QuitGame();
             }
         }
 
         /// <summary>
-        /// Отправить отчёт на сервер.
+        /// Нарисовать диалог обнаружения нарушения.
         /// </summary>
-        private void SendReportToServer(AntiCheatReport report)
+        private void DrawDetectionDialog()
         {
-            // TODO: Реализовать отправку отчёта на сервер
-            Log($"Отправка отчёта на сервер: {report}");
+            try
+            {
+                InitDialogGUI();
+
+                // Вычислить размеры окна
+                float windowWidth = 600f;
+                float windowHeight = 350f;
+                float windowX = (Screen.width - windowWidth) / 2f;
+                float windowY = (Screen.height - windowHeight) / 2f;
+
+                // Рисуем окно
+                GUI.Window(0, new Rect(windowX, windowY, windowWidth, windowHeight), DrawDialogWindow, "");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[AntiCheat] Ошибка при рисовании диалога: {ex.Message}");
+                _showDetectionDialog = false;
+                Time.timeScale = 1f;
+                if (config.QuitGameOnDetection)
+                {
+                    QuitGame();
+                }
+            }
+        }
+
+        private void DrawDialogWindow(int windowID)
+        {
+            // Текст сообщения
+            var messageText = $"⚠️ ОБНАРУЖЕНО НАРУШЕНИЕ\\n\\n{_detectionDialogMessage}";
+            GUI.Label(new Rect(20, 20, 560, 200), messageText, _dialogLabelStyle);
+
+            // Кнопка закрытия
+            if (GUI.Button(new Rect(225, 250, 150, 50), "Закрыть", _dialogButtonStyle))
+            {
+                _showDetectionDialog = false;
+                Time.timeScale = 1f;
+
+                if (config.QuitGameOnDetection)
+                {
+                    QuitGame();
+                }
+            }
+        }
+
+        private void InitDialogGUI()
+        {
+            if (_dialogWindowStyle != null) return;
+
+            var texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, new Color(0.15f, 0.15f, 0.15f, 0.95f));
+            texture.Apply();
+
+            _dialogWindowStyle = new GUIStyle(GUI.skin.window)
+            {
+                normal = { background = texture },
+                padding = new RectOffset(0, 0, 0, 0),
+                margin = new RectOffset(0, 0, 0, 0)
+            };
+
+            var labelTexture = new Texture2D(1, 1);
+            labelTexture.SetPixel(0, 0, new Color(1f, 1f, 1f, 0f));
+            labelTexture.Apply();
+
+            _dialogLabelStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 18,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                wordWrap = true,
+                richText = true
+            };
+            _dialogLabelStyle.normal.textColor = new Color(1f, 0.3f, 0.3f, 1f);
+
+            var buttonTexture = new Texture2D(1, 1);
+            buttonTexture.SetPixel(0, 0, new Color(0.2f, 0.2f, 0.2f, 1f));
+            buttonTexture.Apply();
+
+            _dialogButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                normal = { background = buttonTexture, textColor = Color.white },
+                hover = { background = buttonTexture, textColor = Color.white },
+                active = { background = buttonTexture, textColor = Color.white },
+                fontSize = 16,
+                fontStyle = FontStyle.Bold,
+                padding = new RectOffset(10, 10, 10, 10)
+            };
         }
 
         /// <summary>

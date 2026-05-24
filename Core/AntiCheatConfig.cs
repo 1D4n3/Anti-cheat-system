@@ -76,6 +76,36 @@ namespace Estate2D.AntiCheat.Core
         private int teleportSuspicionThreshold = 2;
         public int TeleportSuspicionThreshold => teleportSuspicionThreshold;
 
+        [Header("Wall Hack Detection")]
+        [SerializeField]
+        [Tooltip("Слои, считающиеся препятствиями для обзора")]
+        private LayerMask wallHackOcclusionMask = ~0;
+        public LayerMask WallHackOcclusionMask => wallHackOcclusionMask;
+
+        [SerializeField]
+        [Tooltip("Максимальный угол прицеливания к цели для проверки (градусы)")]
+        [Min(1f)]
+        private float wallHackAimAngleDegrees = 12f;
+        public float WallHackAimAngleDegrees => wallHackAimAngleDegrees;
+
+        [SerializeField]
+        [Tooltip("Максимальная дистанция проверки возможного прицела через стену (м)")]
+        [Min(1f)]
+        private float maxWallHackCheckDistance = 20f;
+        public float MaxWallHackCheckDistance => maxWallHackCheckDistance;
+
+        [SerializeField]
+        [Tooltip("Интервал проверки WallHack (сек)")]
+        [Min(0.02f)]
+        private float wallHackCheckInterval = 0.2f;
+        public float WallHackCheckInterval => wallHackCheckInterval;
+
+        [SerializeField]
+        [Tooltip("Количество подозрений для срабатывания WallHack")]
+        [Min(1)]
+        private int wallHackSuspicionThreshold = 3;
+        public int WallHackSuspicionThreshold => wallHackSuspicionThreshold;
+
         [Header("Time Sync Detection")]
         [SerializeField]
         [Tooltip("URL сервера времени для сверки устройства")]
@@ -102,20 +132,19 @@ namespace Estate2D.AntiCheat.Core
 
         [Header("Response Settings")]
         [SerializeField]
-        private ResponseType defaultResponseType = ResponseType.Warning;
-        public ResponseType DefaultResponseType => defaultResponseType;
+        [Tooltip("Показывать ли диалог при обнаружении читерства")]
+        private bool showDetectionDialog = true;
+        public bool ShowDetectionDialog => showDetectionDialog;
 
         [SerializeField]
-        private bool quitGameOnDetection = false;
+        [Tooltip("Остановить ли игру при обнаружении читерства")]
+        private bool pauseGameOnDetection = true;
+        public bool PauseGameOnDetection => pauseGameOnDetection;
+
+        [SerializeField]
+        [Tooltip("Закрыть ли игру при обнаружении читерства (с диалогом)")]
+        private bool quitGameOnDetection = true;
         public bool QuitGameOnDetection => quitGameOnDetection;
-
-        [SerializeField]
-        private bool sendReportsToServer = false;
-        public bool SendReportsToServer => sendReportsToServer;
-
-        [SerializeField]
-        private string serverReportUrl = "";
-        public string ServerReportUrl => serverReportUrl;
 
         /// <summary>
         /// Валидирует конфигурацию и логирует предупреждения.
@@ -133,6 +162,33 @@ namespace Estate2D.AntiCheat.Core
 
             if (speedSuspicionThreshold < 1)
                 Debug.LogWarning("[AntiCheat] SpeedSuspicionThreshold должна быть >= 1");
+
+            if (maxAllowedTeleportDistance <= 0)
+                Debug.LogWarning("[AntiCheat] MaxAllowedTeleportDistance должна быть > 0");
+
+            if (teleportSuspicionThreshold < 1)
+                Debug.LogWarning("[AntiCheat] TeleportSuspicionThreshold должна быть >= 1");
+
+            if (wallHackAimAngleDegrees <= 0)
+                Debug.LogWarning("[AntiCheat] WallHackAimAngleDegrees должна быть > 0");
+
+            if (maxWallHackCheckDistance <= 0)
+                Debug.LogWarning("[AntiCheat] MaxWallHackCheckDistance должна быть > 0");
+
+            if (wallHackCheckInterval < 0.02f)
+                Debug.LogWarning("[AntiCheat] WallHackCheckInterval слишком мал (<0.02)");
+
+            if (wallHackSuspicionThreshold < 1)
+                Debug.LogWarning("[AntiCheat] WallHackSuspicionThreshold должна быть >= 1");
+
+            if (timeSyncToleranceSeconds < 0)
+                Debug.LogWarning("[AntiCheat] TimeSyncToleranceSeconds должна быть >= 0");
+
+            if (timeSyncCheckInterval < 1f)
+                Debug.LogWarning("[AntiCheat] TimeSyncCheckInterval должна быть >= 1");
+
+            if (timeSyncSuspicionThreshold < 1)
+                Debug.LogWarning("[AntiCheat] TimeSyncSuspicionThreshold должна быть >= 1");
         }
 
         /// <summary>
@@ -140,26 +196,27 @@ namespace Estate2D.AntiCheat.Core
         /// </summary>
         public AntiCheatResponse GetResponseForCheatType(CheatType cheatType)
         {
-            var response = new AntiCheatResponse { Type = defaultResponseType };
+            var response = new AntiCheatResponse();
 
             switch (cheatType)
             {
                 case CheatType.SpeedHack:
-                    response.UserMessage = "Обнаружено ускорение движения. Это может привести к блокировке.";
+                    response.UserMessage = "Обнаружено ускорение движения.";
                     break;
                 case CheatType.RotationHack:
-                    response.UserMessage = "Обнаружено аномальное вращение. Это может привести к блокировке.";
+                    response.UserMessage = "Обнаружено аномальное вращение.";
                     break;
                 case CheatType.TimeManipulation:
-                    response.UserMessage = "Время устройства не совпадает с серверным временем. Это может указывать на попытку обмана.";
+                    response.UserMessage = "Время устройства не совпадает с серверным временем.";
                     break;
                 case CheatType.PositionTeleport:
-                    response.UserMessage = "Обнаружена попытка телепортации. Аккаунт может быть заблокирован.";
-                    response.BanPlayer = true;
+                    response.UserMessage = "Обнаружена попытка телепортации.";
+                    break;
+                case CheatType.WallHack:
+                    response.UserMessage = "Обнаружена попытка прицеливания через препятствия.";
                     break;
                 case CheatType.MemoryModification:
-                    response.UserMessage = "Обнаружено изменение памяти. Ваш аккаунт может быть заблокирован.";
-                    response.BanPlayer = true;
+                    response.UserMessage = "Обнаружено изменение памяти.";
                     break;
                 default:
                     response.UserMessage = "Обнаружено подозрительное поведение.";

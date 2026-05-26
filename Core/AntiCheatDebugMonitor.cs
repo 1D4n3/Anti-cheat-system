@@ -17,7 +17,7 @@ namespace Estate2D.AntiCheat.Utils
         private Texture2D _backgroundTexture;
         private int _detectionCount = 0;
 
-        private const float LabelWidth = 160f; // Немного увеличили ширину для длинных названий параметров
+        private const float LabelWidth = 160f;
 
         private void Awake()
         {
@@ -99,13 +99,12 @@ namespace Estate2D.AntiCheat.Utils
             var manager = AntiCheatManager.Instance;
             if (manager == null) return;
 
-            // Задаем ширину 480, высота адаптируется под количество модулей
             GUILayout.BeginArea(new Rect(15, 15, 480, Screen.height - 30));
             GUILayout.BeginVertical(_windowStyle);
 
             try
             {
-                GUILayout.Label("<color=#FFD700><b>🛡️ AntiCheat Monitor</b></color>", _headerStyle);
+                GUILayout.Label("<color=#FFD700><b>AntiCheat Monitor</b></color>", _headerStyle);
                 GUILayout.Space(10);
 
                 var config = manager.Config;
@@ -115,18 +114,12 @@ namespace Estate2D.AntiCheat.Utils
                     return;
                 }
 
-                // ==========================================
-                // ОБЩИЙ СТАТУС СИСТЕМЫ
-                // ==========================================
                 DrawRow("<color=#00FFFF>Status:</color>", config.Enabled ? "<color=#00FF00><b>ACTIVE</b></color>" : "<color=#FF0000><b>DISABLED</b></color>");
                 DrawRow("<color=#00FFFF>Total Detections:</color>", _detectionCount > 0 ? $"<color=#FF3333><b>{_detectionCount}</b></color>" : "0");
                 
                 var modules = manager.GetAllModules();
                 DrawRow("<color=#00FFFF>Active Modules:</color>", (modules != null ? modules.Count : 0).ToString());
 
-                // ==========================================
-                // МОДУЛИ И ИХ ПАРАМЕТРЫ
-                // ==========================================
                 if (modules != null && modules.Count > 0)
                 {
                     foreach (var module in modules)
@@ -134,20 +127,15 @@ namespace Estate2D.AntiCheat.Utils
                         if (module == null) continue;
 
                         GUILayout.Space(12);
-                        // Имя модуля как подзаголовок (например: "⚡ Speed Hack Module" или по типу класса)
                         string moduleName = module.GetType().Name.Replace("Module", "");
-                        GUILayout.Label($"<color=#FFA500>📦 {moduleName} Module</color>", _subHeaderStyle);
+                        GUILayout.Label($"<color=#FFA500>{moduleName} Module</color>", _subHeaderStyle);
                         GUILayout.Space(4);
 
-                        // Здесь мы распределяем параметры из конфига по их логическим модулям
-                        // Привязка идет на основе типа модуля
                         string typeName = module.GetType().Name.ToLower();
 
                         if (typeName.Contains("speed") || typeName.Contains("movement"))
                         {
                             DrawRow("  Max Allowed Speed:", $"{config.MaxAllowedSpeed:F1} u/s");
-                            // Если у модуля есть внутренний статус (например, module.IsEnabled), можно вывести и его:
-                            // DrawRow("  Module Status:", module.IsEnabled ? "<color=green>On</color>" : "<color=red>Off</color>");
                         }
                         else if (typeName.Contains("rotation") || typeName.Contains("turn"))
                         {
@@ -157,21 +145,8 @@ namespace Estate2D.AntiCheat.Utils
                         {
                             DrawTimeSyncSection(manager);
                         }
-                        else if (typeName.Contains("wallhack") || typeName.Contains("wall") || typeName.Contains("aim"))
-                        {
-                            var stats = manager.GetDetectionStatistics();
-                            stats.TryGetValue(CheatType.WallHack, out var wallHackCount);
-
-                            DrawRow("  Module Status:", module.IsEnabled ? "<color=#00FF00>Enabled</color>" : "<color=#FF0000>Disabled</color>");
-                            DrawRow("  WallHack Detections:", wallHackCount.ToString());
-                            DrawRow("  Check Interval:", $"{config.WallHackCheckInterval:F2}s");
-                            DrawRow("  Max Distance:", $"{config.MaxWallHackCheckDistance:F1}m");
-                            DrawRow("  Aim Angle:", $"{config.WallHackAimAngleDegrees:F1}°");
-                            DrawRow("  Suspicion Threshold:", config.WallHackSuspicionThreshold.ToString());
-                        }
                         else
                         {
-                            // Дефолтный вывод для остальных модулей, если у них нет уникальных настроек в конфиге
                             DrawRow("  Status:", "<color=#888888>Running...</color>");
                         }
                     }
@@ -197,7 +172,6 @@ namespace Estate2D.AntiCheat.Utils
             GUILayout.EndHorizontal();
         }
 
-        // Вынесли логику отрисовки времени в отдельный метод для чистоты кода
         private void DrawTimeSyncSection(AntiCheatManager manager)
         {
             const string timeFormat = "yyyy-MM-dd HH:mm:ss";
@@ -237,9 +211,7 @@ namespace Estate2D.AntiCheat.Utils
 
             if (showInConsole)
             {
-                Debug.LogError(
-                    $"[AntiCheat Monitor] Detection #{_detectionCount}: {report?.CheatType} - {report?.Message}"
-                );
+                Debug.LogError($"[AntiCheat Monitor] Detection #{_detectionCount}: {report?.CheatType} - {report?.Message}");
             }
         }
 

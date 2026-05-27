@@ -79,7 +79,8 @@ namespace Estate2D.AntiCheat.Core
             }
 
             config.Validate();
-            Log($"[AntiCheat] Init. Debug: {config.DebugMode}");
+
+            Debug.Log("[AntiCheat] Инициализация системы безопасности успешна.");
         }
 
         public void RegisterModule(IAntiCheatModule module)
@@ -94,14 +95,15 @@ namespace Estate2D.AntiCheat.Core
 
             _modules.Add(module);
             module.Initialize(config);
-            Log($"[AntiCheat] Registered: {module.ModuleName}");
+
+            Debug.Log($"[AntiCheat] Подключен модуль: {module.ModuleName}");
         }
 
         public void UnregisterModule(IAntiCheatModule module)
         {
             if (module != null && _modules.Remove(module))
             {
-                Log($"[AntiCheat] Unregistered: {module.ModuleName}");
+                Debug.Log($"[AntiCheat] Отключен модуль: {module.ModuleName}");
             }
         }
 
@@ -116,7 +118,7 @@ namespace Estate2D.AntiCheat.Core
             if (module != null)
             {
                 module.IsEnabled = enabled;
-                Log($"[AntiCheat] Module {module.ModuleName} state: {enabled}");
+                Debug.Log($"[AntiCheat] Изменен статус модуля {module.ModuleName}: {enabled}");
             }
         }
 
@@ -153,10 +155,7 @@ namespace Estate2D.AntiCheat.Core
 
             _detectionHistory.Add(report);
 
-            if (config.LogDetections)
-            {
-                Debug.LogError($"[AntiCheat DETECTION] {report}");
-            }
+            Debug.LogError($"[AntiCheat DETECTION] {report.ModuleName} зафиксировал нарушение! Тип: {report.CheatType}. Сообщение: {report.Message}");
 
             foreach (var module in _modules)
             {
@@ -176,7 +175,7 @@ namespace Estate2D.AntiCheat.Core
 
             if (response.LogToConsole)
             {
-                Debug.Log($"[AntiCheat DETECTION] {response.UserMessage}");
+                Debug.Log($"[AntiCheat RESPONSE] {response.UserMessage}");
             }
 
             if (!config.ShowDetectionDialog)
@@ -195,17 +194,8 @@ namespace Estate2D.AntiCheat.Core
 
         public void QuitGame()
         {
-            Log("[AntiCheat] Quit Game");
+            Debug.Log("[AntiCheat] Завершение работы приложения (Quit Game).");
             Application.Quit();
-        }
-
-        private void Log(string message)
-        {
-            if (config.DebugMode)
-            {
-                Debug.Log(message);
-            }
-            OnSystemLog?.Invoke(message);
         }
 
         public Dictionary<CheatType, int> GetDetectionStatistics()
@@ -226,12 +216,12 @@ namespace Estate2D.AntiCheat.Core
         public void ClearDetectionHistory()
         {
             _detectionHistory.Clear();
-            Log("[AntiCheat] History Cleared");
+            Debug.Log("[AntiCheat] История детекций успешно очищена.");
         }
 
         private void Shutdown()
         {
-            Log("[AntiCheat] Shutdown");
+            Debug.Log("[AntiCheat] Выгрузка менеджера (Shutdown).");
 
             foreach (var module in _modules)
             {

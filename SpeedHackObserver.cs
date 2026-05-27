@@ -9,23 +9,11 @@ namespace Estate2D.AntiCheat
     /// </summary>
     public class SpeedHackObserver : MonoBehaviour, IAntiCheatModule
     {
-        public struct SpeedHackReport
-        {
-            public float ObservedSpeed;
-            public float ThresholdSpeed;
-            public float Distance;
-            public float ElapsedSeconds;
-            public Vector2 From;
-            public Vector2 To;
-        }
-
         [SerializeField]
         private bool autoRegister = true;
 
         [SerializeField]
         private bool logLocalViolations = false;
-
-        public event System.Action<SpeedHackReport> Detected;
 
         private AntiCheatConfig _config;
         private Vector2 _lastPosition;
@@ -36,6 +24,7 @@ namespace Estate2D.AntiCheat
         // IAntiCheatModule
         public string ModuleId => "speed_hack_observer";
         public string ModuleName => "Speed Hack Observer";
+
         public bool IsEnabled
         {
             get => _isEnabled;
@@ -76,11 +65,9 @@ namespace Estate2D.AntiCheat
 
         public void OnCheatDetected(AntiCheatReport report)
         {
-            // Другой модуль обнаружил нарушение - можно синхронизировать состояние
-            if (report.CheatType != CheatType.SpeedHack)
+            if (report.CheatType == CheatType.SpeedHack)
                 return;
 
-            // Например, очистить подозрение при обнаружении других типов нарушений
             _currentSuspicion = 0;
         }
 
@@ -103,7 +90,9 @@ namespace Estate2D.AntiCheat
                 _currentSuspicion += 1;
 
                 if (logLocalViolations)
+                {
                     Debug.LogWarning($"[SpeedHack] Violation: {observedSpeed:F2} > {threshold:F2} (score {_currentSuspicion}/{_config.SpeedSuspicionThreshold})");
+                }
 
                 if (_currentSuspicion >= _config.SpeedSuspicionThreshold)
                 {
@@ -118,17 +107,6 @@ namespace Estate2D.AntiCheat
                         AdditionalData = $"Distance: {distance:F2}, From: {_lastPosition}, To: {currentPosition}"
                     };
 
-                    var legacyReport = new SpeedHackReport
-                    {
-                        ObservedSpeed = observedSpeed,
-                        ThresholdSpeed = threshold,
-                        Distance = distance,
-                        ElapsedSeconds = elapsed,
-                        From = _lastPosition,
-                        To = currentPosition
-                    };
-
-                    Detected?.Invoke(legacyReport);
                     AntiCheatManager.Instance.ReportCheatDetection(report);
                 }
             }

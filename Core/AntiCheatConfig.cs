@@ -5,18 +5,22 @@ namespace Estate2D.AntiCheat.Core
     [CreateAssetMenu(menuName = "AntiCheat/Config", fileName = "AntiCheatConfig")]
     public class AntiCheatConfig : ScriptableObject
     {
-        [Header("Global Settings")]
+        [Header("Global & Response Settings")]
         [SerializeField]
         private bool enabled = true;
         public bool Enabled => enabled;
 
         [SerializeField]
-        private bool debugMode = false;
-        public bool DebugMode => debugMode;
+        private bool showDetectionDialog = true;
+        public bool ShowDetectionDialog => showDetectionDialog;
 
         [SerializeField]
-        private bool logDetections = true;
-        public bool LogDetections => logDetections;
+        private bool pauseGameOnDetection = true;
+        public bool PauseGameOnDetection => pauseGameOnDetection;
+
+        [SerializeField]
+        private bool quitGameOnDetection = true;
+        public bool QuitGameOnDetection => quitGameOnDetection;
 
         [Header("Speed Hack Detection")]
         [SerializeField]
@@ -72,19 +76,6 @@ namespace Estate2D.AntiCheat.Core
         [Min(1)]
         private int timeSyncSuspicionThreshold = 2;
         public int TimeSyncSuspicionThreshold => timeSyncSuspicionThreshold;
-
-        [Header("Response Settings")]
-        [SerializeField]
-        private bool showDetectionDialog = true;
-        public bool ShowDetectionDialog => showDetectionDialog;
-
-        [SerializeField]
-        private bool pauseGameOnDetection = true;
-        public bool PauseGameOnDetection => pauseGameOnDetection;
-
-        [SerializeField]
-        private bool quitGameOnDetection = true;
-        public bool QuitGameOnDetection => quitGameOnDetection;
 
         public void Validate()
         {

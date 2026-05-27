@@ -14,14 +14,13 @@ namespace Estate2D.AntiCheat.Core
         [SerializeField]
         private bool persistBetweenScenes = true;
 
-        private List<IAntiCheatModule> _modules = new List<IAntiCheatModule>();
-        private List<AntiCheatReport> _detectionHistory = new List<AntiCheatReport>();
+        private readonly List<IAntiCheatModule> _modules = new List<IAntiCheatModule>();
+        private readonly List<AntiCheatReport> _detectionHistory = new List<AntiCheatReport>();
 
         public event Action<AntiCheatReport> OnCheatDetected;
-        public event Action<string> OnSystemLog;
 
         public AntiCheatConfig Config => config;
-        public IReadOnlyList<AntiCheatReport> DetectionHistory => _detectionHistory.AsReadOnly();
+        public IReadOnlyList<AntiCheatReport> DetectionHistory => _detectionHistory;
 
         public static AntiCheatManager Instance
         {
@@ -80,7 +79,7 @@ namespace Estate2D.AntiCheat.Core
 
             config.Validate();
 
-            Debug.Log("[AntiCheat] Инициализация системы безопасности успешна.");
+            Debug.Log("[AС] Инициализация системы прошла успешно.");
         }
 
         public void RegisterModule(IAntiCheatModule module)
@@ -96,14 +95,14 @@ namespace Estate2D.AntiCheat.Core
             _modules.Add(module);
             module.Initialize(config);
 
-            Debug.Log($"[AntiCheat] Подключен модуль: {module.ModuleName}");
+            Debug.Log($"[AС] Подключен модуль: {module.ModuleName}");
         }
 
         public void UnregisterModule(IAntiCheatModule module)
         {
             if (module != null && _modules.Remove(module))
             {
-                Debug.Log($"[AntiCheat] Отключен модуль: {module.ModuleName}");
+                Debug.Log($"[AС] Отключен модуль: {module.ModuleName}");
             }
         }
 
@@ -118,13 +117,13 @@ namespace Estate2D.AntiCheat.Core
             if (module != null)
             {
                 module.IsEnabled = enabled;
-                Debug.Log($"[AntiCheat] Изменен статус модуля {module.ModuleName}: {enabled}");
+                Debug.Log($"[AС] Изменен статус модуля {module.ModuleName}: {enabled}");
             }
         }
 
         public IReadOnlyList<IAntiCheatModule> GetAllModules()
         {
-            return _modules.AsReadOnly();
+            return _modules;
         }
 
         public DateTime? LastDeviceTimeUtc { get; private set; }
@@ -155,7 +154,7 @@ namespace Estate2D.AntiCheat.Core
 
             _detectionHistory.Add(report);
 
-            Debug.LogError($"[AntiCheat DETECTION] {report.ModuleName} зафиксировал нарушение! Тип: {report.CheatType}. Сообщение: {report.Message}");
+            Debug.LogError($"[AС] {report.ModuleName} зафиксировал нарушение. Тип: {report.CheatType}. Сообщение: {report.Message}");
 
             foreach (var module in _modules)
             {
@@ -175,7 +174,7 @@ namespace Estate2D.AntiCheat.Core
 
             if (response.LogToConsole)
             {
-                Debug.Log($"[AntiCheat RESPONSE] {response.UserMessage}");
+                Debug.Log($"[AC] {response.UserMessage}");
             }
 
             if (!config.ShowDetectionDialog)
@@ -194,7 +193,7 @@ namespace Estate2D.AntiCheat.Core
 
         public void QuitGame()
         {
-            Debug.Log("[AntiCheat] Завершение работы приложения (Quit Game).");
+            Debug.Log("[AC] Завершение работы системы.");
             Application.Quit();
         }
 
@@ -216,12 +215,12 @@ namespace Estate2D.AntiCheat.Core
         public void ClearDetectionHistory()
         {
             _detectionHistory.Clear();
-            Debug.Log("[AntiCheat] История детекций успешно очищена.");
+            Debug.Log("[AC] История детекций успешно очищена.");
         }
 
         private void Shutdown()
         {
-            Debug.Log("[AntiCheat] Выгрузка менеджера (Shutdown).");
+            Debug.Log("[AC] Выгрузка менеджера (Выключение).");
 
             foreach (var module in _modules)
             {

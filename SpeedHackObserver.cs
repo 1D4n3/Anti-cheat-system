@@ -3,10 +3,6 @@ using Estate2D.AntiCheat.Core;
 
 namespace Estate2D.AntiCheat
 {
-    /// <summary>
-    /// Наблюдатель за скоростью движения персонажа.
-    /// Обнаруживает попытки разгона (SpeedHack) путем анализа скорости перемещения.
-    /// </summary>
     public class SpeedHackObserver : MonoBehaviour, IAntiCheatModule
     {
         [SerializeField]
@@ -21,7 +17,6 @@ namespace Estate2D.AntiCheat
         private int _currentSuspicion;
         private bool _isEnabled = true;
 
-        // IAntiCheatModule
         public string ModuleId => "speed_hack_observer";
         public string ModuleName => "Speed Hack Observer";
 
@@ -35,8 +30,7 @@ namespace Estate2D.AntiCheat
         {
             _lastPosition = transform.position;
 
-            // Автоматическая регистрация в менеджере
-            if (autoRegister)
+            if (autoRegister && AntiCheatManager.Instance != null)
             {
                 AntiCheatManager.Instance.RegisterModule(this);
             }
@@ -52,7 +46,7 @@ namespace Estate2D.AntiCheat
             if (_timer >= _config.SpeedCheckInterval)
             {
                 ValidateSpeed();
-                _timer = 0;
+                _timer -= _config.SpeedCheckInterval;
             }
         }
 
@@ -61,6 +55,7 @@ namespace Estate2D.AntiCheat
             _config = config;
             _lastPosition = transform.position;
             _currentSuspicion = 0;
+            _timer = 0f;
         }
 
         public void OnCheatDetected(AntiCheatReport report)
@@ -73,7 +68,6 @@ namespace Estate2D.AntiCheat
 
         public void Shutdown()
         {
-            // Очистка ресурсов
         }
 
         private void ValidateSpeed()
@@ -87,11 +81,11 @@ namespace Estate2D.AntiCheat
 
             if (observedSpeed > threshold)
             {
-                _currentSuspicion += 1;
+                _currentSuspicion++;
 
                 if (logLocalViolations)
                 {
-                    Debug.LogWarning($"[SpeedHack] Violation: {observedSpeed:F2} > {threshold:F2} (score {_currentSuspicion}/{_config.SpeedSuspicionThreshold})");
+                    Debug.LogWarning($"[SpeedHack] Нарушение: {observedSpeed:F2} > {threshold:F2} (индекс {_currentSuspicion}/{_config.SpeedSuspicionThreshold})");
                 }
 
                 if (_currentSuspicion >= _config.SpeedSuspicionThreshold)
@@ -104,7 +98,7 @@ namespace Estate2D.AntiCheat
                         SeverityLevel = 6,
                         TargetObject = gameObject,
                         Message = $"Обнаружено ускорение: {observedSpeed:F2} м/с > {threshold:F2} м/с",
-                        AdditionalData = $"Distance: {distance:F2}, From: {_lastPosition}, To: {currentPosition}"
+                        AdditionalData = $"Дистанция: {distance:F2}, из: {_lastPosition} в: {currentPosition}"
                     };
 
                     AntiCheatManager.Instance.ReportCheatDetection(report);

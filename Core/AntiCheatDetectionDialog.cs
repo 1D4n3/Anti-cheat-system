@@ -100,8 +100,8 @@ namespace Estate2D.AntiCheat.Utils
 
             try
             {
-                GUILayout.Label("<color=#FF3333><b>DETECTION NOTICE</b></color>", _headerStyle);
-                GUILayout.Space(20);
+                GUILayout.Label("<color=#FF3333><b>–≈«”À‹“¿“ –¿¡Œ“€ ¿Õ“»-◊»“ —»—“≈Ã€</b></color>", _headerStyle);
+                GUILayout.Space(16);
 
                 GUILayout.Label(_dialogMessage, _messageStyle);
                 GUILayout.FlexibleSpace();
@@ -109,7 +109,7 @@ namespace Estate2D.AntiCheat.Utils
                 GUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 
-                if (GUILayout.Button("Close", _buttonStyle, GUILayout.Width(140), GUILayout.Height(40)))
+                if (GUILayout.Button("«‡Í˚Ú¸ ÓÍÌÓ", _buttonStyle, GUILayout.Width(140), GUILayout.Height(40)))
                 {
                     _showDialog = false;
                     Time.timeScale = 1f;

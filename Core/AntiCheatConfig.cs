@@ -5,7 +5,6 @@ namespace Estate2D.AntiCheat.Core
     [CreateAssetMenu(menuName = "AntiCheat/Config", fileName = "AntiCheatConfig")]
     public class AntiCheatConfig : ScriptableObject
     {
-        [Header("Global & Response Settings")]
         [SerializeField]
         private bool enabled = true;
         public bool Enabled => enabled;
@@ -22,7 +21,6 @@ namespace Estate2D.AntiCheat.Core
         private bool quitGameOnDetection = true;
         public bool QuitGameOnDetection => quitGameOnDetection;
 
-        [Header("Speed Hack Detection")]
         [SerializeField]
         private float maxAllowedSpeed = 10f;
         public float MaxAllowedSpeed => maxAllowedSpeed;
@@ -42,7 +40,6 @@ namespace Estate2D.AntiCheat.Core
         private int speedSuspicionThreshold = 3;
         public int SpeedSuspicionThreshold => speedSuspicionThreshold;
 
-        [Header("Rotation Hack Detection")]
         [SerializeField]
         private float maxRotationSpeed = 200f;
         public float MaxRotationSpeed => maxRotationSpeed;
@@ -57,7 +54,6 @@ namespace Estate2D.AntiCheat.Core
         private int rotationSuspicionThreshold = 3;
         public int RotationSuspicionThreshold => rotationSuspicionThreshold;
 
-        [Header("Time Sync Detection")]
         [SerializeField]
         private string timeServerUrl = "https://timeapi.io/api/Time/current/zone?timeZone=Etc/UTC";
         public string TimeServerUrl => timeServerUrl;
@@ -80,25 +76,10 @@ namespace Estate2D.AntiCheat.Core
         public void Validate()
         {
             if (maxAllowedSpeed <= 0)
-                Debug.LogWarning("[AntiCheat] MaxAllowedSpeed должна быть > 0");
-
-            if (speedCheckInterval < 0.02f)
-                Debug.LogWarning("[AntiCheat] SpeedCheckInterval слишком мал (<0.02)");
+                Debug.LogWarning("[AC] Максимально разрешенная скорость должна быть больше 0");
 
             if (maxRotationSpeed <= 0)
-                Debug.LogWarning("[AntiCheat] MaxRotationSpeed должна быть > 0");
-
-            if (speedSuspicionThreshold < 1)
-                Debug.LogWarning("[AntiCheat] SpeedSuspicionThreshold должна быть >= 1");
-
-            if (timeSyncToleranceSeconds < 0)
-                Debug.LogWarning("[AntiCheat] TimeSyncToleranceSeconds должна быть >= 0");
-
-            if (timeSyncCheckInterval < 1f)
-                Debug.LogWarning("[AntiCheat] TimeSyncCheckInterval должна быть >= 1");
-
-            if (timeSyncSuspicionThreshold < 1)
-                Debug.LogWarning("[AntiCheat] TimeSyncSuspicionThreshold должна быть >= 1");
+                Debug.LogWarning("[AC] Максимальная скорость вращения должна быть больше 0");
         }
 
         public AntiCheatResponse GetResponseForCheatType(CheatType cheatType)

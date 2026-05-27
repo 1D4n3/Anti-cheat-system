@@ -3,39 +3,23 @@ using Estate2D.AntiCheat.Core;
 
 namespace Estate2D.AntiCheat
 {
-    /// <summary>
-    /// Наблюдатель за скоростью вращения персонажа.
-    /// Обнаруживает попытки ускоренного вращения/паровращения через анализ угловой скорости.
-    /// </summary>
     public class RotationHackObserver : MonoBehaviour, IAntiCheatModule
     {
-        public struct RotationHackReport
-        {
-            public float ObservedDegPerSecond;
-            public float ThresholdDegPerSecond;
-            public float DeltaDegrees;
-            public float ElapsedSeconds;
-            public float FromDegrees;
-            public float ToDegrees;
-        }
-
         [SerializeField]
         private bool autoRegister = true;
 
         [SerializeField]
         private bool logLocalViolations = false;
 
-        public event System.Action<RotationHackReport> Detected;
-
         private AntiCheatConfig _config;
-        private float _lastZAngle;
+        private Quaternion _lastRotation;
         private float _timer;
         private int _currentSuspicion;
         private bool _isEnabled = true;
 
-        // IAntiCheatModule
         public string ModuleId => "rotation_hack_observer";
         public string ModuleName => "Rotation Hack Observer";
+
         public bool IsEnabled
         {
             get => _isEnabled;
@@ -44,10 +28,9 @@ namespace Estate2D.AntiCheat
 
         private void Start()
         {
-            _lastZAngle = transform.rotation.eulerAngles.z;
+            _lastRotation = transform.rotation;
 
-            // Автоматическая регистрация в менеджере
-            if (autoRegister)
+            if (autoRegister && AntiCheatManager.Instance != null)
             {
                 AntiCheatManager.Instance.RegisterModule(this);
             }
@@ -63,45 +46,46 @@ namespace Estate2D.AntiCheat
             if (_timer >= _config.RotationCheckInterval)
             {
                 ValidateRotation();
-                _timer = 0;
+                _timer -= _config.RotationCheckInterval;
             }
         }
 
         public void Initialize(AntiCheatConfig config)
         {
             _config = config;
-            _lastZAngle = transform.rotation.eulerAngles.z;
+            _lastRotation = transform.rotation;
             _currentSuspicion = 0;
+            _timer = 0f;
         }
 
         public void OnCheatDetected(AntiCheatReport report)
         {
-            // Другой модуль обнаружил нарушение - можно синхронизировать состояние
-            if (report.CheatType != CheatType.RotationHack)
+            if (report.CheatType == CheatType.RotationHack)
                 return;
 
-            // Например, очистить подозрение при обнаружении других типов нарушений
             _currentSuspicion = 0;
         }
 
         public void Shutdown()
         {
-            // Очистка ресурсов
         }
 
         private void ValidateRotation()
         {
-            float currentZAngle = transform.rotation.eulerAngles.z;
-            float deltaAngle = Mathf.Abs(Mathf.DeltaAngle(currentZAngle, _lastZAngle));
+            Quaternion currentRotation = transform.rotation;
+
+            float deltaAngle = Quaternion.Angle(_lastRotation, currentRotation);
             float elapsed = Mathf.Max(_timer, 0.0001f);
             float observedRotationSpeed = deltaAngle / elapsed;
 
             if (observedRotationSpeed > _config.MaxRotationSpeed)
             {
-                _currentSuspicion += 1;
+                _currentSuspicion++;
 
                 if (logLocalViolations)
-                    Debug.LogWarning($"[RotationHack] Violation: {observedRotationSpeed:F1} > {_config.MaxRotationSpeed:F1} (score {_currentSuspicion}/{_config.RotationSuspicionThreshold})");
+                {
+                    Debug.LogWarning($"[RotationHack] Нарушение: {observedRotationSpeed:F1}°/с > {_config.MaxRotationSpeed:F1}°/с (индекс {_currentSuspicion}/{_config.RotationSuspicionThreshold})");
+                }
 
                 if (_currentSuspicion >= _config.RotationSuspicionThreshold)
                 {
@@ -112,21 +96,10 @@ namespace Estate2D.AntiCheat
                         CheatType = CheatType.RotationHack,
                         SeverityLevel = 7,
                         TargetObject = gameObject,
-                        Message = $"Обнаружено ускоренное вращение: {observedRotationSpeed:F1}°/с > {_config.MaxRotationSpeed:F1}°/с",
-                        AdditionalData = $"DeltaAngle: {deltaAngle:F2}, From: {_lastZAngle:F2}°, To: {currentZAngle:F2}°"
+                        Message = $"Обнаружено аномальное вращение: {observedRotationSpeed:F1}°/с > {_config.MaxRotationSpeed:F1}°/с",
+                        AdditionalData = $"Delta угла: {deltaAngle:F2}°, рассчитанное за {elapsed:F4}с"
                     };
 
-                    var legacyReport = new RotationHackReport
-                    {
-                        ObservedDegPerSecond = observedRotationSpeed,
-                        ThresholdDegPerSecond = _config.MaxRotationSpeed,
-                        DeltaDegrees = deltaAngle,
-                        ElapsedSeconds = elapsed,
-                        FromDegrees = _lastZAngle,
-                        ToDegrees = currentZAngle
-                    };
-
-                    Detected?.Invoke(legacyReport);
                     AntiCheatManager.Instance.ReportCheatDetection(report);
                 }
             }
@@ -135,7 +108,7 @@ namespace Estate2D.AntiCheat
                 _currentSuspicion = Mathf.Max(0, _currentSuspicion - 1);
             }
 
-            _lastZAngle = currentZAngle;
+            _lastRotation = currentRotation;
         }
     }
 }

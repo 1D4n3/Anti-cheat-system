@@ -10,6 +10,7 @@ namespace Estate2D.AntiCheat.Utils
         [SerializeField] private bool showInConsole = true;
         [SerializeField] private bool showOnScreen = true;
         [SerializeField] private int fontSize = 13;
+        [SerializeField] private float smoothSpeed = 5f;
 
         private GUIStyle _windowStyle;
         private GUIStyle _labelLeftStyle;
@@ -17,16 +18,26 @@ namespace Estate2D.AntiCheat.Utils
         private GUIStyle _headerStyle;
         private GUIStyle _subHeaderStyle;
         private Texture2D _backgroundTexture;
-        private int _detectionCount = 0;
+        private int _detectionCount;
 
-        private const float LabelWidth = 190f;
+        private const float LabelWidth = 220f;
 
         private GameObject _playerObject;
         private Vector3 _lastPlayerPosition;
-        private float _lastPlayerRotationZ; // Для 2D пространства используем угол по оси Z
-        private float _currentCalculatedSpeed = 0f;
-        private float _currentAngularSpeed = 0f; // Текущая угловая скорость
+        private float _lastPlayerRotationZ;
+
+        private float _currentCalculatedSpeed;
+        private float _currentAngularSpeed;
+        private float _displayedLinearSpeed;
+        private float _displayedAngularSpeed;
+
         private Vector2 _scrollPosition = Vector2.zero;
+
+        private readonly List<FieldInfo> _coreGroup = new List<FieldInfo>();
+        private readonly List<FieldInfo> _speedGroup = new List<FieldInfo>();
+        private readonly List<FieldInfo> _rotationGroup = new List<FieldInfo>();
+        private readonly List<FieldInfo> _timeGroup = new List<FieldInfo>();
+        private readonly Dictionary<FieldInfo, string> _formattedFieldNames = new Dictionary<FieldInfo, string>();
 
         private void Awake()
         {
@@ -82,17 +93,18 @@ namespace Estate2D.AntiCheat.Utils
 
             if (Time.deltaTime > 0f)
             {
-                // 1. Линейная скорость
                 Vector3 currentPos = _playerObject.transform.position;
                 float distance = Vector3.Distance(currentPos, _lastPlayerPosition);
                 _currentCalculatedSpeed = distance / Time.deltaTime;
                 _lastPlayerPosition = currentPos;
 
-                // 2. Угловая скорость (изменение угла Z с учетом перегрузки через 360 градусов)
                 float currentRotationZ = _playerObject.transform.eulerAngles.z;
                 float deltaAngle = Mathf.DeltaAngle(_lastPlayerRotationZ, currentRotationZ);
                 _currentAngularSpeed = Mathf.Abs(deltaAngle) / Time.deltaTime;
                 _lastPlayerRotationZ = currentRotationZ;
+
+                _displayedLinearSpeed = Mathf.Lerp(_displayedLinearSpeed, _currentCalculatedSpeed, Time.deltaTime * smoothSpeed);
+                _displayedAngularSpeed = Mathf.Lerp(_displayedAngularSpeed, _currentAngularSpeed, Time.deltaTime * smoothSpeed);
             }
         }
 
@@ -101,7 +113,7 @@ namespace Estate2D.AntiCheat.Utils
             if (_windowStyle != null) return;
 
             _backgroundTexture = new Texture2D(1, 1);
-            _backgroundTexture.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.85f));
+            _backgroundTexture.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.65f));
             _backgroundTexture.Apply();
 
             _windowStyle = new GUIStyle
@@ -118,7 +130,8 @@ namespace Estate2D.AntiCheat.Utils
                 fontSize = fontSize + 3,
                 fontStyle = FontStyle.Bold,
                 richText = true,
-                alignment = TextAnchor.UpperLeft
+                alignment = TextAnchor.UpperLeft,
+                clipping = TextClipping.Overflow
             };
 
             _subHeaderStyle = new GUIStyle(baseStyle)
@@ -126,83 +139,34 @@ namespace Estate2D.AntiCheat.Utils
                 fontSize = fontSize + 1,
                 fontStyle = FontStyle.Bold,
                 richText = true,
-                alignment = TextAnchor.MiddleLeft
+                alignment = TextAnchor.MiddleLeft,
+                clipping = TextClipping.Overflow
             };
 
             _labelLeftStyle = new GUIStyle(baseStyle)
             {
                 fontSize = fontSize,
                 richText = true,
-                alignment = TextAnchor.MiddleLeft
+                alignment = TextAnchor.MiddleLeft,
+                clipping = TextClipping.Overflow
             };
 
             _labelRightStyle = new GUIStyle(baseStyle)
             {
                 fontSize = fontSize,
                 richText = true,
-                alignment = TextAnchor.MiddleRight
+                alignment = TextAnchor.MiddleRight,
+                clipping = TextClipping.Overflow
             };
+
+            CacheConfigFields();
         }
 
-        private void OnGUI()
+        private void CacheConfigFields()
         {
-            if (!showOnScreen) return;
+            if (AntiCheatManager.Instance == null || AntiCheatManager.Instance.Config == null) return;
 
-            InitGUI();
-
-            var manager = AntiCheatManager.Instance;
-            if (manager == null) return;
-
-            GUILayout.BeginArea(new Rect(15, 15, 490, Screen.height - 30));
-            _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, _windowStyle);
-
-            try
-            {
-                GUILayout.Label("<color=#FFD700><b>AntiCheat Monitor</b></color>", _headerStyle);
-                GUILayout.Space(10);
-
-                var config = manager.Config;
-                if (config == null)
-                {
-                    GUILayout.Label("<color=red>Config is NULL</color>", _labelLeftStyle);
-                    return;
-                }
-
-                DrawRow("<color=#00FFFF>Status:</color>", config.Enabled ? "<color=#00FF00><b>ACTIVE</b></color>" : "<color=#FF0000><b>DISABLED</b></color>");
-                DrawRow("<color=#00FFFF>Total Detections:</color>", _detectionCount > 0 ? $"<color=#FF3333><b>{_detectionCount}</b></color>" : "0");
-
-                var modules = manager.GetAllModules();
-                DrawRow("<color=#00FFFF>Active Modules:</color>", (modules != null ? modules.Count : 0).ToString());
-
-                GUILayout.Space(12);
-                GUILayout.Label("<color=#FFA500>Live Telemetry</color>", _subHeaderStyle);
-                GUILayout.Space(4);
-
-                // Вывод линейной скорости
-                string speedColor = _currentCalculatedSpeed > config.MaxAllowedSpeed ? "#FF3333" : "#00FF00";
-                DrawRow("  Player Movement Speed:", $"<color={speedColor}><b>{_currentCalculatedSpeed:F2} u/s</b></color>");
-
-                // Вывод угловой скорости
-                string angularColor = _currentAngularSpeed > config.MaxRotationSpeed ? "#FF3333" : "#00FF00";
-                DrawRow("  Player Angular Speed:", $"<color={angularColor}><b>{_currentAngularSpeed:F1} °/s</b></color>");
-
-                DrawSegmentedConfig(config, modules);
-            }
-            finally
-            {
-                GUILayout.EndScrollView();
-                GUILayout.EndArea();
-            }
-        }
-
-        private void DrawSegmentedConfig(AntiCheatConfig config, IReadOnlyList<IAntiCheatModule> modules)
-        {
-            FieldInfo[] fields = config.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-
-            var coreGroup = new List<FieldInfo>();
-            var speedGroup = new List<FieldInfo>();
-            var rotationGroup = new List<FieldInfo>();
-            var timeGroup = new List<FieldInfo>();
+            FieldInfo[] fields = AntiCheatManager.Instance.Config.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
             foreach (FieldInfo field in fields)
             {
@@ -220,31 +184,85 @@ namespace Estate2D.AntiCheat.Utils
                         continue;
                 }
 
-                if (lowerName.Contains("speed") || lowerName.Contains("move"))
-                    speedGroup.Add(field);
-                else if (lowerName.Contains("rotate") || lowerName.Contains("rotation") || lowerName.Contains("turn"))
-                    rotationGroup.Add(field);
-                else if (lowerName.Contains("time") || lowerName.Contains("sync"))
-                    timeGroup.Add(field);
-                else
-                    coreGroup.Add(field);
-            }
+                _formattedFieldNames[field] = FormatFieldName(field.Name);
 
-            DrawConfigGroup("Core & Response Settings", coreGroup, config);
+                if (lowerName.Contains("speed") || lowerName.Contains("move"))
+                    _speedGroup.Add(field);
+                else if (lowerName.Contains("rotate") || lowerName.Contains("rotation") || lowerName.Contains("turn"))
+                    _rotationGroup.Add(field);
+                else if (lowerName.Contains("time") || lowerName.Contains("sync"))
+                    _timeGroup.Add(field);
+                else
+                    _coreGroup.Add(field);
+            }
+        }
+
+        private void OnGUI()
+        {
+            if (!showOnScreen) return;
+
+            InitGUI();
+
+            var manager = AntiCheatManager.Instance;
+            if (manager == null) return;
+
+            GUILayout.BeginArea(new Rect(15, 15, 490, Screen.height - 30));
+            _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, _windowStyle);
+
+            try
+            {
+                GUILayout.Label("<color=#FFD700><b>Интерфейс анти-чит системы</b></color>", _headerStyle);
+                GUILayout.Space(10);
+
+                var config = manager.Config;
+                if (config == null)
+                {
+                    GUILayout.Label("<color=red>Конфигурация отсутствует</color>", _labelLeftStyle);
+                    return;
+                }
+
+                DrawRow("<color=#00FFFF>Статус системы:</color>", config.Enabled ? "<color=#00FF00><b>АКТИВНА</b></color>" : "<color=#FF0000><b>ОТКЛЮЧЕНА</b></color>");
+                DrawRow("<color=#00FFFF>Выявлено нарушений:</color>", _detectionCount > 0 ? $"<color=#FF3333><b>{_detectionCount}</b></color>" : "0");
+
+                var modules = manager.GetAllModules();
+                DrawRow("<color=#00FFFF>Активных модулей:</color>", (modules != null ? modules.Count : 0).ToString());
+
+                GUILayout.Space(12);
+                GUILayout.Label("<color=#FFA500>Телеметрия игрока</color>", _subHeaderStyle);
+                GUILayout.Space(4);
+
+                string speedColor = _displayedLinearSpeed > config.MaxAllowedSpeed ? "#FF3333" : "#00FF00";
+                DrawRow("  Скорость движения:", $"<color={speedColor}><b>{_displayedLinearSpeed:F2} ед/с</b></color>");
+
+                string angularColor = _displayedAngularSpeed > config.MaxRotationSpeed ? "#FF3333" : "#00FF00";
+                DrawRow("  Скорость вращения:", $"<color={angularColor}><b>{_displayedAngularSpeed:F1} °/с</b></color>");
+
+                DrawConfigGroups(config, modules);
+            }
+            finally
+            {
+                GUILayout.EndScrollView();
+                GUILayout.EndArea();
+            }
+        }
+
+        private void DrawConfigGroups(AntiCheatConfig config, IReadOnlyList<IAntiCheatModule> modules)
+        {
+            DrawConfigGroup("Общие настройки", _coreGroup, config);
 
             if (HasActiveModule(modules, "speed") || HasActiveModule(modules, "movement"))
             {
-                DrawConfigGroup("Movement Speed Module", speedGroup, config);
+                DrawConfigGroup("Модуль контроля скорости", _speedGroup, config);
             }
 
             if (HasActiveModule(modules, "rotate") || HasActiveModule(modules, "rotation") || HasActiveModule(modules, "turn"))
             {
-                DrawConfigGroup("Rotation Module", rotationGroup, config);
+                DrawConfigGroup("Модуль контроля вращения", _rotationGroup, config);
             }
 
             if (HasActiveModule(modules, "time") || HasActiveModule(modules, "sync"))
             {
-                DrawConfigGroup("Time Sync Module", timeGroup, config);
+                DrawConfigGroup("Модуль синхронизации времени", _timeGroup, config);
                 DrawTimeSyncSection(AntiCheatManager.Instance);
             }
         }
@@ -259,13 +277,13 @@ namespace Estate2D.AntiCheat.Utils
 
             foreach (FieldInfo field in fields)
             {
-                string fieldName = FormatFieldName(field.Name);
+                string fieldName = _formattedFieldNames.TryGetValue(field, out var cachedName) ? cachedName : field.Name;
                 object value = field.GetValue(config);
                 string displayValue = value != null ? value.ToString() : "null";
 
                 if (field.FieldType == typeof(bool))
                 {
-                    displayValue = (bool)value ? "<color=#00FF00>True</color>" : "<color=#FF5555>False</color>";
+                    displayValue = (bool)value ? "<color=#00FF00>Истина</color>" : "<color=#FF5555>Ложь</color>";
                 }
 
                 DrawRow($"  {fieldName}:", displayValue);
@@ -319,30 +337,30 @@ namespace Estate2D.AntiCheat.Utils
 
             if (manager.LastDeviceTimeUtc.HasValue && manager.LastServerTimeUtc.HasValue)
             {
-                DrawRow("  Device UTC:", manager.LastDeviceTimeUtc.Value.ToString(timeFormat));
-                DrawRow("  Server UTC:", manager.LastServerTimeUtc.Value.ToString(timeFormat));
+                DrawRow("  UTC устройства:", manager.LastDeviceTimeUtc.Value.ToString(timeFormat));
+                DrawRow("  UTC сервера:", manager.LastServerTimeUtc.Value.ToString(timeFormat));
 
-                string diffColor = Mathf.Abs((float)manager.LastTimeSyncDifferenceSeconds) > 5f ? "#FF5555" : "#FFFF00";
-                DrawRow("  Time Diff:", $"<color={diffColor}>{manager.LastTimeSyncDifferenceSeconds:F2}s</color>");
+                string diffColor = Mathf.Abs(manager.LastTimeSyncDifferenceSeconds) > 5f ? "#FF5555" : "#FFFF00";
+                DrawRow("  Разница времени:", $"<color={diffColor}>{manager.LastTimeSyncDifferenceSeconds:F2}с</color>");
 
                 if (manager.LastTimeSyncAttemptUtc.HasValue)
                 {
-                    DrawRow("  Last Sync Attempt:", manager.LastTimeSyncAttemptUtc.Value.ToString(timeFormat));
+                    DrawRow("  Последняя проверка:", manager.LastTimeSyncAttemptUtc.Value.ToString(timeFormat));
                 }
             }
             else
             {
-                var statusText = "<color=#888888>not checked yet</color>";
+                var statusText = "<color=#888888>еще не проверялось</color>";
                 if (!string.IsNullOrEmpty(manager.LastTimeSyncError))
                 {
-                    statusText = $"<color=red>failed: {manager.LastTimeSyncError}</color>";
+                    statusText = $"<color=red>ошибка: {manager.LastTimeSyncError}</color>";
                 }
                 else if (manager.LastTimeSyncAttemptUtc.HasValue)
                 {
-                    statusText = $"<color=yellow>attempted: {manager.LastTimeSyncAttemptUtc.Value.ToString(timeFormat)}</color>";
+                    statusText = $"<color=yellow>выполняется попытка: {manager.LastTimeSyncAttemptUtc.Value.ToString(timeFormat)}</color>";
                 }
 
-                DrawRow("  Sync Status:", statusText);
+                DrawRow("  Статус синхронизации:", statusText);
             }
         }
 
@@ -352,7 +370,7 @@ namespace Estate2D.AntiCheat.Utils
 
             if (showInConsole)
             {
-                Debug.LogError($"[AntiCheat Monitor] Detection #{_detectionCount}: {report?.CheatType} - {report?.Message}");
+                Debug.LogError($"[AC] Детекция #{_detectionCount}: {report?.CheatType} - {report?.Message}");
             }
         }
     }

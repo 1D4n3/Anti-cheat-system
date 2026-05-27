@@ -6,10 +6,6 @@ using Estate2D.AntiCheat.Core;
 
 namespace Estate2D.AntiCheat
 {
-    /// <summary>
-    /// Наблюдатель, сравнивающий системное время устройства с серверным временем.
-    /// Обнаруживает попытки манипуляции локальным временем игрока.
-    /// </summary>
     public class TimeSyncHackObserver : MonoBehaviour, IAntiCheatModule
     {
         [SerializeField]
@@ -26,6 +22,7 @@ namespace Estate2D.AntiCheat
 
         public string ModuleId => "time_sync_observer";
         public string ModuleName => "Time Sync Observer";
+
         public bool IsEnabled
         {
             get => _isEnabled;
@@ -34,7 +31,7 @@ namespace Estate2D.AntiCheat
 
         private void Start()
         {
-            if (autoRegister)
+            if (autoRegister && AntiCheatManager.Instance != null)
             {
                 AntiCheatManager.Instance.RegisterModule(this);
             }
@@ -49,7 +46,7 @@ namespace Estate2D.AntiCheat
             if (_timer < _config.TimeSyncCheckInterval || _requestInProgress)
                 return;
 
-            _timer = 0f;
+            _timer -= _config.TimeSyncCheckInterval;
             StartCoroutine(ValidateDeviceTime());
         }
 
@@ -79,7 +76,7 @@ namespace Estate2D.AntiCheat
             if (string.IsNullOrEmpty(_config.TimeServerUrl))
             {
                 if (logLocalViolations)
-                    Debug.LogWarning("[TimeSyncHackObserver] Time server URL is not configured.");
+                    Debug.LogWarning("[TimeSyncHackObserver] URL-адрес сервера времени не настроен.");
                 yield break;
             }
 
@@ -92,11 +89,7 @@ namespace Estate2D.AntiCheat
             if (logLocalViolations)
                 Debug.Log($"[TimeSyncHackObserver] Запрос времени к серверу выполнен.");
 
-#if UNITY_2020_1_OR_NEWER
             if (request.result != UnityWebRequest.Result.Success)
-#else
-            if (request.isNetworkError || request.isHttpError)
-#endif
             {
                 var error = $"Не удалось получить серверное время: {request.error}";
                 AntiCheatManager.Instance.UpdateTimeSyncAttemptStatus(error);
@@ -120,13 +113,13 @@ namespace Estate2D.AntiCheat
             AntiCheatManager.Instance.UpdateTimeSyncStatus(deviceUtc, serverTimeUtc, (float)diff);
 
             if (logLocalViolations)
-                Debug.Log($"[TimeSyncHackObserver] DeviceUtc={deviceUtc:o}, ServerUtc={serverTimeUtc:o}, Diff={diff:F2}s");
+                Debug.Log($"[TimeSyncHackObserver] Время устройства: {deviceUtc:o}, время сервера: {serverTimeUtc:o}, разница: {diff:F2}с");
 
             if (diff > _config.TimeSyncToleranceSeconds)
             {
-                _currentSuspicion += 1;
+                _currentSuspicion++;
                 if (logLocalViolations)
-                    Debug.LogWarning($"[TimeSyncHackObserver] Time desync violation: {diff:F2}s > {_config.TimeSyncToleranceSeconds:F2}s (score {_currentSuspicion}/{_config.TimeSyncSuspicionThreshold})");
+                    Debug.LogWarning($"[TimeSyncHackObserver] Нарушение синхронизации времени: {diff:F2}с > {_config.TimeSyncToleranceSeconds:F2}с (индекс {_currentSuspicion}/{_config.TimeSyncSuspicionThreshold})");
 
                 if (_currentSuspicion >= _config.TimeSyncSuspicionThreshold)
                 {
@@ -138,7 +131,7 @@ namespace Estate2D.AntiCheat
                         SeverityLevel = 8,
                         TargetObject = gameObject,
                         Message = $"Время на устройстве отличается от серверного на {diff:F2} секунд.",
-                        AdditionalData = $"DeviceUtc={deviceUtc:o}, ServerUtc={serverTimeUtc:o}, Tolerance={_config.TimeSyncToleranceSeconds:F1}s"
+                        AdditionalData = $"Время устройства: {deviceUtc:o}, время сервера: {serverTimeUtc:o}, допустимая разница: {_config.TimeSyncToleranceSeconds:F1}с"
                     };
 
                     AntiCheatManager.Instance.ReportCheatDetection(report);
@@ -159,7 +152,6 @@ namespace Estate2D.AntiCheat
 
             try
             {
-                // Parse timeapi.io JSON format: {"dateTime":"2024-05-19T10:30:45"}
                 var dateTimeKey = "\"dateTime\":\"";
                 var index = responseBody.IndexOf(dateTimeKey, StringComparison.OrdinalIgnoreCase);
                 if (index >= 0)
@@ -174,7 +166,6 @@ namespace Estate2D.AntiCheat
                     }
                 }
 
-                // Fallback: try to parse the entire response
                 if (DateTime.TryParse(responseBody.Trim(), null, System.Globalization.DateTimeStyles.AdjustToUniversal, out serverTimeUtc))
                     return true;
             }
